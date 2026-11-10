@@ -52,7 +52,7 @@
     .game-area { min-width: 0; }
     .game-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin: 5px 0 14px; }
     .level-title { margin: 0; color: var(--accent); font: 700 21px/1.2 var(--serif); }
-    .rules { color: var(--muted); font-size: 12px; text-align: right; }
+    .rules { max-width: 320px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: right; }
     .board-wrap { display: flex; justify-content: center; padding: 4px; }
     .board { --size: 3; display: grid; grid-template-columns: repeat(var(--size), minmax(0, 1fr)); width: min(100%, 630px); aspect-ratio: 1; padding: 3px; gap: 2px; background: var(--line); border: 1px solid #778576; box-shadow: 0 16px 42px #0003; }
     .cell { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 0; background: var(--paper); color: var(--paper-ink); cursor: pointer; font: 700 clamp(16px, 3.2vw, 32px)/1 var(--serif); transition: background .12s, color .12s, box-shadow .12s; }
@@ -101,6 +101,25 @@
     .summary-item { display: grid; grid-template-columns: 55px 1fr; gap: 9px; padding: 11px; background: var(--panel); font-size: 11px; line-height: 1.7; }
     .summary-level { color: var(--accent); font-weight: 700; }
     .dialog-actions { display: flex; justify-content: end; gap: 8px; margin-top: 18px; }
+    .dialog-hint { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .tut-card { position: fixed; left: 50%; bottom: 18px; z-index: 60; width: min(560px, calc(100% - 24px)); transform: translateX(-50%); padding: 15px 17px 12px; background: var(--panel); border: 2px solid var(--accent); box-shadow: 0 18px 50px #0009; }
+    .tut-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+    .tut-title { margin: 0; color: var(--accent); font: 700 13px/1 var(--sans); letter-spacing: .5px; }
+    .tut-count { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .tut-text { margin: 0 0 11px; color: var(--ink); font-size: 13px; line-height: 1.75; }
+    .tut-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .tut-skip { padding: 0; border: 0; background: none; color: var(--muted); font-size: 11px; text-decoration: underline; cursor: pointer; }
+    .tut-next { min-height: 34px; padding: 6px 16px; border: 0; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .tut-next:active { transform: translateY(1px); }
+    .tut-target { outline: 3px solid var(--accent); outline-offset: 4px; animation: tut-pulse 1.5s ease-in-out infinite; }
+    @keyframes tut-pulse { 0%, 100% { outline-color: var(--accent); } 50% { outline-color: #c8ec8355; } }
+    .tut-replay { margin-top: 9px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px; text-decoration: underline; cursor: pointer; }
+    body.tutorial-on .board { width: min(100%, 440px); }
+    body.tutorial-on .board-wrap { align-items: flex-start; padding-top: 6px; }
+    @media (max-width: 520px) {
+      .tut-card { top: 8px; bottom: auto; padding: 11px 13px 10px; }
+      .tut-text { font-size: 12px; line-height: 1.65; }
+    }
     @media (min-width: 1000px) {
       .board { width: min(100%, 640px); }
       .game-area { min-height: 720px; display: flex; flex-direction: column; }
@@ -159,7 +178,7 @@
     <nav class="progress" id="progress" aria-label="关卡进度"></nav>
     <div class="layout">
       <section class="game-area" aria-label="数独棋盘">
-        <div class="game-heading"><h2 class="level-title" id="level-title">第 1 / 7 关 · 3 阶</h2><span class="rules" id="rules">每行、每列数字不重复</span></div>
+        <div class="game-heading"><h2 class="level-title" id="level-title">第 1 / 7 关 · 3 阶</h2><span class="rules" id="rules">填入 1 到 3；每行、每列都要包含这些数字，且不能重复。</span></div>
         <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="数独棋盘"></div></div>
         <p class="game-note" id="note" aria-live="polite">题目已通过唯一解校验</p>
         <div class="keypad" id="keypad" aria-label="数字键盘"></div>
@@ -177,10 +196,18 @@
           <button class="action secondary" id="hint" disabled>提示 · −10分</button>
           <button class="action submit" id="submit" disabled>提交答案</button>
         </div>
-        <section class="history"><h3 class="panel-heading">通关记录</h3><div class="history-list" id="history"><span class="empty-history">完成关卡后显示记录</span></div></section>
+        <section class="history"><h3 class="panel-heading">通关记录</h3><div class="history-list" id="history"><span class="empty-history">完成关卡后显示记录</span></div><button type="button" class="tut-replay" id="tut-replay">重看新手教程</button></section>
       </aside>
     </div>
   </main>
+  <dialog id="onboard-dialog"><div class="dialog-body">
+    <h2>你是第一次玩吗？</h2>
+    <p class="dialog-hint">可以先用一分钟弄清楚数独的规则，还能亲手推一格；也可以直接开始第一关。</p>
+    <div class="dialog-actions">
+      <button class="action secondary" id="onboard-direct">不用，直接开始</button>
+      <button class="action primary" id="onboard-tour">我是新手，带我看一遍</button>
+    </div>
+  </div></dialog>
   <dialog id="summary-dialog"><div class="dialog-body" id="summary-content"></div></dialog>
   <script>
     (() => {
@@ -202,8 +229,11 @@
       const ui = {
         score: $("#score"), progress: $("#progress"), title: $("#level-title"), rules: $("#rules"), board: $("#board"),
         note: $("#note"), keypad: $("#keypad"), timer: $("#timer"), status: $("#status"), rewards: $("#rewards"),
-        history: $("#history"), start: $("#start"), hint: $("#hint"), submit: $("#submit"), dialog: $("#summary-dialog"), summary: $("#summary-content")
+        history: $("#history"), start: $("#start"), hint: $("#hint"), submit: $("#submit"), dialog: $("#summary-dialog"), summary: $("#summary-content"),
+        onboardDialog: $("#onboard-dialog"), onboardTour: $("#onboard-tour"), onboardDirect: $("#onboard-direct"), tutReplay: $("#tut-replay")
       };
+      const ONBOARD_KEY = "sudoku_onboarded";
+      const tutorial = { active: false, step: 0, card: null, target: null, practice: null, spare: null };
       const game = {
         score: 100, levelIndex: 0, hintCost: 10, summary: [], startedAt: null, elapsed: 0, timerId: null,
         puzzle: [], solution: [], values: [], fixed: [], hinted: [], selected: null,
@@ -330,11 +360,20 @@
         ui.note.dataset.tone = tone;
       }
 
+      function ruleText(size) {
+        const shape = boxShape(size);
+        const base = `填入 1 到 ${size}；每行、每列都要包含这些数字，且不能重复`;
+        return shape
+          ? `${base}；每个 ${shape[0]}×${shape[1]} 宫内也不能重复。`
+          : `${base}。`;
+      }
+
       function updateHeader() {
         ui.score.textContent = game.score;
         ui.title.textContent = game.levelIndex < LEVELS.length
           ? `第 ${game.levelIndex + 1} / 7 关 · ${LEVELS[game.levelIndex]} 阶`
           : "七阶全通 · 完美收官";
+        if (game.levelIndex < LEVELS.length) ui.rules.textContent = ruleText(LEVELS[game.levelIndex]);
         ui.progress.replaceChildren(...LEVELS.map((size, index) => {
           const step = document.createElement("div");
           step.className = `progress-step${index < game.levelIndex ? " done" : ""}${index === game.levelIndex ? " current" : ""}`;
@@ -410,6 +449,7 @@
             cell.textContent = game.values[row][col] || "";
             cell.setAttribute("aria-label", `第${row + 1}行第${col + 1}列${game.values[row][col] ? `，${game.values[row][col]}` : "，空格"}${game.fixed[row][col] ? "，已锁定" : ""}`);
             cell.disabled = game.startedAt === null || !!game.fixed[row][col];
+            if (tutorial.active && tutorial.step < 6 && tutorial.spare && row === tutorial.spare[0] && col === tutorial.spare[1]) cell.disabled = true;
             if (game.selected && game.selected[0] === row && game.selected[1] === col) cell.classList.add("selected");
             else if (game.selected && (game.selected[0] === row || game.selected[1] === col || isSameBox(row, col, game.selected[0], game.selected[1]))) cell.classList.add("related");
             if (game.selected && game.values[row][col] && game.values[row][col] === game.values[game.selected[0]][game.selected[1]]) cell.classList.add("same-number");
@@ -475,6 +515,7 @@
         ui.status.style.color = "var(--accent)";
         game.timerId = setInterval(tick, 100);
         render();
+        if (tutorial.active && tutorial.step === 4) tutorialAdvance();
       }
 
       function tick() {
@@ -491,9 +532,35 @@
         if (game.fixed[row][col]) return;
         game.values[row][col] = value;
         renderBoard();
+        if (tutorial.active) onTutorialInput(row, col, value);
+      }
+
+      function onTutorialInput(row, col, value) {
+        if (tutorial.step !== 5 || !tutorial.practice) return;
+        const [practiceRow, practiceCol] = tutorial.practice;
+        if (row !== practiceRow || col !== practiceCol) {
+          setNote("先填高亮的那一格：这一行只差一个数", "warn");
+          return;
+        }
+        const expected = game.solution[practiceRow][practiceCol];
+        if (value === expected) {
+          setNote(`对！这一行只缺 ${expected}，填对说明规则通了`, "good");
+          tutorialAdvance();
+          return;
+        }
+        if (!value) return;
+        game.values[practiceRow][practiceCol] = 0;
+        const present = game.puzzle[practiceRow].filter(Boolean).slice().sort((a, b) => a - b);
+        setNote(`这一行已经有 ${present.join("、")}，所以这一格只能填 ${expected}`, "warn");
+        renderBoard();
       }
 
       function useHint() {
+        if (tutorial.active) {
+          if (tutorial.step === 6) tutorialHint();
+          else setNote("先跟着教程走完这一步，再试提示", "warn");
+          return;
+        }
         if (game.startedAt === null || game.score < game.hintCost) return;
         let target = game.selected && !game.fixed[game.selected[0]][game.selected[1]] ? game.selected : null;
         if (!target) {
@@ -528,6 +595,10 @@
       }
 
       function submitAnswer() {
+        if (tutorial.active) {
+          setNote("教程里不会提交计分，点教程卡上的按钮继续", "warn");
+          return;
+        }
         if (game.startedAt === null) return;
         stopTimer();
         game.attempts++;
@@ -592,7 +663,6 @@
       function resetGame() {
         game.score = 100; game.levelIndex = 0; game.hintCost = 10; game.summary = [];
         game.attempts = 0; game.penalties = 0; game.hintSpent = 0;
-        ui.rules.textContent = "每行、每列数字不重复";
         newRound();
       }
 
@@ -607,8 +677,142 @@
         }
       }
 
+      function buildTutorialSteps() {
+        const size = LEVELS[game.levelIndex];
+        const shape = boxShape(size);
+        const boxText = shape
+          ? `宫（只有 4、6、9 阶才有）：棋盘上粗线围出来的方块叫宫，${size === 4 ? "4 阶是 2×2" : size === 6 ? "6 阶是 2×3" : "9 阶是 3×3"}。宫和行、列一样，也要把 1 到 ${size} 各出现一次，不能重复。`
+          : `宫只在 4、6、9 阶的棋盘上才有，就是粗线围出来的方块。你这盘是 ${size} 阶，没有宫，只用行和列两条规则就够了，别去找宫。`;
+        return [
+          { text: `这是数独：一个 ${size}×${size} 的方格盘，每格填 1 到 ${size} 中的一个数字。灰色格子是题目自带的，不能改；浅色空格才是你要填的。`, target: ui.board },
+          { text: `唯一的硬规则：不重复。每一行、每一列都要把 1 到 ${size} 各出现一次，不能重复、不能缺。比如某一行已经填了 1 和 2，这一行的空格就绝不可能再是 1 或 2。`, target: ui.board },
+          { text: boxText, target: ui.board },
+          { text: "从哪下手：找「只剩一个可能」的格子。一行里其他数字都定了，最后一格自然唯一；再把列和宫排除一遍，答案就只剩一个。先从数字最多的行、列、宫扫起，能确定的先填掉。", target: ui.board },
+          { text: "点「开始计时」，计时开始后空格才能填。操作：点空格选中 → 敲数字（手机点下方数字键盘）→ 方向键换格，退格键清空。", target: ui.start },
+          { text: "动手试一格：整盘只差这一格，把它填对就进下一步。填错了会告诉你这一行还缺什么。", target: ui.board },
+          { text: "卡住时点「提示」，程序直接把答案填进当前格。第一次扣 10 分，之后每次翻倍，能自己推就别点。", target: ui.hint },
+          { text: "最后点「提交答案」：全对 +20 分，按用时再加 10/8/5/2 分；答错 −10 分并换一道新题。目标七关全通，分数越高越好。", target: ui.submit }
+        ];
+      }
+
+      function prepareTutorialBoard() {
+        const size = LEVELS[game.levelIndex];
+        const solution = makeSolution(size);
+        const practice = [0, 0];
+        const spare = size > 2 ? [1, size - 1] : null;
+        const puzzle = solution.map(row => row.slice());
+        puzzle[practice[0]][practice[1]] = 0;
+        if (spare) puzzle[spare[0]][spare[1]] = 0;
+        game.puzzle = puzzle;
+        game.solution = solution;
+        game.values = puzzle.map(row => row.slice());
+        game.fixed = puzzle.map(row => row.map(Boolean));
+        game.hinted = puzzle.map(row => row.map(() => false));
+        game.selected = null;
+        tutorial.practice = practice;
+        tutorial.spare = spare;
+      }
+
+      function renderTutorialCard(step) {
+        if (!tutorial.card) {
+          const card = document.createElement("div");
+          card.className = "tut-card";
+          const head = document.createElement("div");
+          head.className = "tut-head";
+          const title = document.createElement("h4");
+          title.className = "tut-title";
+          title.textContent = "新手引导";
+          const count = document.createElement("span");
+          count.className = "tut-count";
+          head.append(title, count);
+          const text = document.createElement("p");
+          text.className = "tut-text";
+          const actions = document.createElement("div");
+          actions.className = "tut-actions";
+          const skip = document.createElement("button");
+          skip.type = "button";
+          skip.className = "tut-skip";
+          skip.textContent = "跳过教程";
+          skip.addEventListener("click", finishTutorial);
+          const next = document.createElement("button");
+          next.type = "button";
+          next.className = "tut-next";
+          next.addEventListener("click", tutorialAdvance);
+          actions.append(skip, next);
+          card.append(head, text, actions);
+          document.body.append(card);
+          tutorial.card = card;
+        }
+        const steps = buildTutorialSteps();
+        const current = steps[step];
+        let body = current.text;
+        if (step === 5 && game.startedAt === null) body = `先点「开始计时」让格子可以输入。${body}`;
+        tutorial.card.querySelector(".tut-count").textContent = `${step + 1} / ${steps.length}`;
+        tutorial.card.querySelector(".tut-text").textContent = body;
+        tutorial.card.querySelector(".tut-next").textContent = step >= steps.length - 1 ? "开始游戏" : "下一步";
+        if (tutorial.target && tutorial.target !== current.target) tutorial.target.classList.remove("tut-target");
+        current.target.classList.add("tut-target");
+        tutorial.target = current.target;
+      }
+
+      function showTutorialStep() {
+        if (!tutorial.active) return;
+        if (tutorial.step === 5 && tutorial.practice) game.selected = tutorial.practice;
+        render();
+        renderTutorialCard(tutorial.step);
+      }
+
+      function tutorialAdvance() {
+        if (!tutorial.active) return;
+        if (tutorial.step >= buildTutorialSteps().length - 1) { finishTutorial(); return; }
+        tutorial.step++;
+        showTutorialStep();
+      }
+
+      function tutorialHint() {
+        const size = LEVELS[game.levelIndex];
+        const empty = [];
+        for (let row = 0; row < size; row++) {
+          for (let col = 0; col < size; col++) if (!game.fixed[row][col] && !game.values[row][col]) empty.push([row, col]);
+        }
+        if (!empty.length) { setNote("这盘已经填满了，正式游戏里「提示」会填进当前空格", "warn"); return; }
+        const spare = tutorial.spare;
+        const onSpare = !!spare && empty.some(([row, col]) => row === spare[0] && col === spare[1]);
+        const [row, col] = onSpare ? spare : empty[0];
+        game.values[row][col] = game.solution[row][col];
+        game.fixed[row][col] = true;
+        game.hinted[row][col] = true;
+        game.selected = null;
+        setNote(`教程演示：第${row + 1}行第${col + 1}列是 ${game.solution[row][col]}（正式游戏扣 10 分）`, "warn");
+        render();
+      }
+
+      function startTutorial() {
+        if (tutorial.active) return;
+        tutorial.active = true;
+        tutorial.step = 0;
+        document.body.classList.add("tutorial-on");
+        newRound();
+        prepareTutorialBoard();
+        game.selected = null;
+        ui.timer.textContent = formatTime(0);
+        setNote("教程示例：整盘只差两格，先看规则，再动手推一格");
+        showTutorialStep();
+      }
+
+      function finishTutorial() {
+        tutorial.active = false;
+        document.body.classList.remove("tutorial-on");
+        if (tutorial.target) { tutorial.target.classList.remove("tut-target"); tutorial.target = null; }
+        if (tutorial.card) { tutorial.card.remove(); tutorial.card = null; }
+        tutorial.practice = null;
+        tutorial.spare = null;
+        try { localStorage.setItem(ONBOARD_KEY, "1"); } catch (error) { /* 隐私模式下忽略 */ }
+        newRound();
+      }
+
       document.addEventListener("keydown", event => {
-        if (ui.dialog.open) return;
+        if (ui.dialog.open || ui.onboardDialog.open) return;
         const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
         if (arrows[event.key]) { event.preventDefault(); moveSelection(...arrows[event.key]); return; }
         if (/^[1-9]$/.test(event.key) && Number(event.key) <= LEVELS[game.levelIndex]) enterValue(Number(event.key));
@@ -618,7 +822,21 @@
       ui.start.addEventListener("click", startTimer);
       ui.hint.addEventListener("click", useHint);
       ui.submit.addEventListener("click", submitAnswer);
+      ui.onboardTour.addEventListener("click", () => { ui.onboardDialog.close(); startTutorial(); });
+      ui.onboardDirect.addEventListener("click", () => {
+        ui.onboardDialog.close();
+        try { localStorage.setItem(ONBOARD_KEY, "1"); } catch (error) { /* 隐私模式下忽略 */ }
+      });
+      ui.onboardDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        ui.onboardDialog.close();
+        try { localStorage.setItem(ONBOARD_KEY, "1"); } catch (error) { /* 隐私模式下忽略 */ }
+      });
+      ui.tutReplay.addEventListener("click", () => { if (!tutorial.active) startTutorial(); });
       newRound();
+      let onboardDone = false;
+      try { onboardDone = !!localStorage.getItem(ONBOARD_KEY); } catch (error) { onboardDone = false; }
+      if (!onboardDone) ui.onboardDialog.showModal();
     })();
   </script>
 </body>

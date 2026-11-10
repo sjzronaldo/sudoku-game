@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#18221c">
+  <title>数独 · 七阶闯关</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #18221c;
+      --panel: #222e26;
+      --panel-raised: #2b3930;
+      --line: #506052;
+      --ink: #edf0e7;
+      --muted: #a7b3a5;
+      --accent: #c8ec83;
+      --accent-ink: #172019;
+      --paper: #f0f1e7;
+      --paper-ink: #26342a;
+      --hint: #f2d48a;
+      --danger: #f18e78;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: "Trebuchet MS", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background-color: var(--page);
+      background-image: linear-gradient(90deg, transparent 49px, #ffffff08 50px), linear-gradient(transparent 49px, #ffffff08 50px);
+      background-size: 50px 50px;
+      font-family: var(--sans);
+    }
+    button { font: inherit; }
+    .page { width: min(1240px, calc(100% - 56px)); margin: 0 auto; padding: 30px 0 42px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 22px; }
+    .brand { display: flex; align-items: baseline; gap: 13px; }
+    .brand-name { margin: 0; font: 700 30px/1 var(--serif); letter-spacing: 1.5px; }
+    .brand-subtitle { color: var(--muted); font-size: 13px; }
+    .score { display: flex; align-items: center; gap: 10px; padding: 9px 16px; background: var(--panel); border: 1px solid #ffffff0d; }
+    .score-label { color: var(--muted); font-size: 12px; }
+    .score-value { color: var(--accent); font: 700 25px/1 var(--serif); }
+    .score-unit { align-self: flex-end; color: var(--muted); font-size: 12px; }
+    .progress { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 24px; }
+    .progress-step { padding: 10px 12px; border: 1px solid #ffffff0b; background: var(--panel); color: var(--muted); text-align: center; font-size: 12px; transition: background .2s, color .2s, transform .2s; }
+    .progress-step.done { color: var(--accent); background: #34452b; }
+    .progress-step.current { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); transform: translateY(-2px); font-weight: 700; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 302px; align-items: start; gap: 34px; }
+    .game-area { min-width: 0; }
+    .game-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin: 5px 0 14px; }
+    .level-title { margin: 0; color: var(--accent); font: 700 21px/1.2 var(--serif); }
+    .rules { color: var(--muted); font-size: 12px; text-align: right; }
+    .board-wrap { display: flex; justify-content: center; padding: 4px; }
+    .board { --size: 3; display: grid; grid-template-columns: repeat(var(--size), minmax(0, 1fr)); width: min(100%, 630px); aspect-ratio: 1; padding: 3px; gap: 2px; background: var(--line); border: 1px solid #778576; box-shadow: 0 16px 42px #0003; }
+    .cell { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 0; background: var(--paper); color: var(--paper-ink); cursor: pointer; font: 700 clamp(16px, 3.2vw, 32px)/1 var(--serif); transition: background .12s, color .12s, box-shadow .12s; }
+    .cell.given { background: #dce2d5; color: #647064; cursor: default; }
+    .cell.selected { z-index: 1; background: var(--accent); color: var(--paper-ink); box-shadow: inset 0 0 0 3px #718f4d; }
+    .cell.related { background: #dce7ca; }
+    .cell.same-number { background: #cbd9b7; }
+    .cell.hinted { color: #826127; background: #f5e5bb; }
+    .cell.conflict { color: #9c3d31; background: #f2c6b8; }
+    .cell.box-right { border-right: 3px solid var(--line); }
+    .cell.box-bottom { border-bottom: 3px solid var(--line); }
+    .game-note { min-height: 24px; margin: 10px 4px 0; color: var(--muted); font-size: 12px; }
+    .game-note[data-tone="good"] { color: var(--accent); }
+    .game-note[data-tone="warn"] { color: var(--hint); }
+    .game-note[data-tone="bad"] { color: var(--danger); }
+    .keypad { display: none; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: 13px 4px 0; }
+    .key { min-height: 42px; border: 1px solid #ffffff12; background: var(--panel-raised); color: var(--ink); cursor: pointer; font-weight: 700; }
+    .key:active, .action:active { transform: translateY(1px); }
+    .sidebar { display: grid; gap: 15px; }
+    .timer-panel { padding: 19px 20px 17px; background: var(--panel); border-top: 2px solid var(--accent); }
+    .eyebrow { color: var(--muted); font-size: 11px; }
+    .timer { margin: 7px 0 5px; font: 700 37px/1 var(--serif); font-variant-numeric: tabular-nums; }
+    .status { min-height: 34px; margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .panel-heading { margin: 1px 0 8px; font: 700 16px/1.2 var(--serif); }
+    .rewards { display: grid; gap: 4px; }
+    .reward { display: flex; justify-content: space-between; padding: 8px 10px; background: #222e26c9; color: var(--muted); font-size: 12px; }
+    .reward.active { background: #36472d; color: var(--accent); }
+    .actions { display: grid; gap: 8px; }
+    .action { min-height: 46px; padding: 10px 14px; border: 1px solid transparent; cursor: pointer; font-weight: 700; transition: filter .16s, transform .16s, opacity .16s; }
+    .action:hover:not(:disabled), .key:hover { filter: brightness(1.08); }
+    .action:disabled { cursor: not-allowed; opacity: .43; }
+    .action.primary { color: var(--accent-ink); background: var(--accent); }
+    .action.secondary { color: var(--accent); background: var(--panel-raised); border-color: #ffffff0d; }
+    .action.submit { color: var(--ink); background: #354138; border-color: #ffffff12; }
+    .history { margin-top: 6px; }
+    .history-list { display: grid; gap: 5px; }
+    .history-row { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
+    .history-row span:last-child { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .empty-history { color: var(--muted); font-size: 12px; }
+    dialog { width: min(560px, calc(100% - 28px)); max-height: min(80vh, 700px); padding: 0; overflow: auto; border: 1px solid #ffffff24; background: var(--page); color: var(--ink); box-shadow: 0 22px 90px #0009; }
+    dialog::backdrop { background: #080d09c9; backdrop-filter: blur(4px); }
+    .dialog-body { padding: 28px; }
+    .dialog-body h2 { margin: 0 0 7px; font: 700 27px/1.2 var(--serif); }
+    .dialog-score { margin: 0 0 19px; color: var(--accent); font-size: 16px; }
+    .summary-list { display: grid; gap: 5px; }
+    .summary-item { display: grid; grid-template-columns: 55px 1fr; gap: 9px; padding: 11px; background: var(--panel); font-size: 11px; line-height: 1.7; }
+    .summary-level { color: var(--accent); font-weight: 700; }
+    .dialog-actions { display: flex; justify-content: end; gap: 8px; margin-top: 18px; }
+    @media (min-width: 1000px) {
+      .board { width: min(100%, 640px); }
+      .game-area { min-height: 720px; display: flex; flex-direction: column; }
+      .board-wrap { flex: 1; align-items: center; }
+    }
+    @media (max-width: 800px) {
+      .page { width: min(100% - 32px, 620px); padding-top: 20px; }
+      .layout { grid-template-columns: 1fr; gap: 17px; }
+      .sidebar { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .timer-panel { grid-column: 1 / -1; }
+      .actions { align-content: start; }
+      .history { grid-column: 1 / -1; margin-top: 4px; }
+      .history-list { grid-template-columns: 1fr 1fr; }
+      .board { width: min(100%, 600px); }
+    }
+    @media (max-width: 520px) {
+      .page { width: calc(100% - 24px); padding: 15px 0 28px; }
+      .topbar { margin-bottom: 17px; }
+      .brand { gap: 8px; }
+      .brand-name { font-size: 24px; }
+      .brand-subtitle { font-size: 11px; }
+      .score { gap: 6px; padding: 8px 10px; }
+      .score-label { max-width: 35px; line-height: 1.2; }
+      .score-value { font-size: 21px; }
+      .progress { gap: 4px; margin-bottom: 16px; }
+      .progress-step { padding: 8px 2px; font-size: 10px; }
+      .game-heading { align-items: center; margin-bottom: 9px; }
+      .level-title { font-size: 18px; }
+      .rules { max-width: 150px; font-size: 10px; }
+      .board-wrap { padding: 1px; }
+      .board { gap: 1px; padding: 2px; }
+      .cell { font-size: clamp(14px, 6vw, 25px); }
+      .cell.box-right { border-right-width: 2px; }
+      .cell.box-bottom { border-bottom-width: 2px; }
+      .keypad { display: grid; }
+      .sidebar { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .timer-panel { padding: 14px 15px; }
+      .timer { font-size: 31px; }
+      .status { margin-top: 8px; font-size: 11px; }
+      .panel-heading { font-size: 14px; }
+      .reward { padding: 7px; font-size: 11px; }
+      .action { min-height: 42px; padding: 9px 8px; font-size: 12px; }
+      .history-list { grid-template-columns: 1fr; }
+      .summary-item { grid-template-columns: 44px 1fr; font-size: 10px; }
+      .dialog-body { padding: 22px 18px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand"><h1 class="brand-name">SUDOKU</h1><span class="brand-subtitle">七阶闯关</span></div>
+      <div class="score" aria-label="当前积分"><span class="score-label">当前积分</span><strong class="score-value" id="score">100</strong><span class="score-unit">分</span></div>
+    </header>
+    <nav class="progress" id="progress" aria-label="关卡进度"></nav>
+    <div class="layout">
+      <section class="game-area" aria-label="数独棋盘">
+        <div class="game-heading"><h2 class="level-title" id="level-title">第 1 / 7 关 · 3 阶</h2><span class="rules" id="rules">每行、每列数字不重复</span></div>
+        <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="数独棋盘"></div></div>
+        <p class="game-note" id="note" aria-live="polite">题目已通过唯一解校验</p>
+        <div class="keypad" id="keypad" aria-label="数字键盘"></div>
+      </section>
+      <aside class="sidebar">
+        <section class="timer-panel" aria-live="polite">
+          <div class="eyebrow">本关用时</div><div class="timer" id="timer">00:00.0</div>
+          <p class="status" id="status">准备就绪</p>
+        </section>
+        <section>
+          <h3 class="panel-heading">时间奖励</h3><div class="rewards" id="rewards"></div>
+        </section>
+        <div class="actions">
+          <button class="action primary" id="start">开始计时</button>
+          <button class="action secondary" id="hint" disabled>提示 · −10分</button>
+          <button class="action submit" id="submit" disabled>提交答案</button>
+        </div>
+        <section class="history"><h3 class="panel-heading">通关记录</h3><div class="history-list" id="history"><span class="empty-history">完成关卡后显示记录</span></div></section>
+      </aside>
+    </div>
+  </main>
+  <dialog id="summary-dialog"><div class="dialog-body" id="summary-content"></div></dialog>
+  <script>
+    (() => {
+      "use strict";
+
+      const LEVELS = [3, 4, 5, 6, 7, 8, 9];
+      const BOX_ROWS = { 4: 2, 6: 2, 9: 3 };
+      const MEDIUM_CLUES = { 3: 6, 4: 9, 5: 15, 6: 22, 7: 30, 8: 38, 9: 34 };
+      const TIME_REWARDS = {
+        3: [[6, 10], [10, 8], [15, 5], [20, 2]],
+        4: [[12, 10], [20, 8], [30, 5], [40, 2]],
+        5: [[20, 10], [30, 8], [45, 5], [60, 2]],
+        6: [[30, 10], [45, 8], [60, 5], [80, 2]],
+        7: [[40, 10], [60, 8], [80, 5], [100, 2]],
+        8: [[50, 10], [70, 8], [95, 5], [120, 2]],
+        9: [[60, 10], [90, 8], [120, 5], [150, 2]]
+      };
+      const $ = (selector) => document.querySelector(selector);
+      const ui = {
+        score: $("#score"), progress: $("#progress"), title: $("#level-title"), rules: $("#rules"), board: $("#board"),
+        note: $("#note"), keypad: $("#keypad"), timer: $("#timer"), status: $("#status"), rewards: $("#rewards"),
+        history: $("#history"), start: $("#start"), hint: $("#hint"), submit: $("#submit"), dialog: $("#summary-dialog"), summary: $("#summary-content")
+      };
+      const game = {
+        score: 100, levelIndex: 0, hintCost: 10, summary: [], startedAt: null, elapsed: 0, timerId: null,
+        puzzle: [], solution: [], values: [], fixed: [], hinted: [], selected: null,
+        attempts: 0, penalties: 0, hintSpent: 0
+      };
+
+      function boxShape(size) {
+        const rows = BOX_ROWS[size];
+        return rows ? [rows, size / rows] : null;
+      }
+
+      function boxIndex(row, column, size, shape) {
+        return Math.floor(row / shape[0]) * (size / shape[1]) + Math.floor(column / shape[1]);
+      }
+
+      function countSolutions(grid, size, limit = 2) {
+        const shape = boxShape(size);
+        const fullMask = (1 << size) - 1;
+        const rowMasks = Array(size).fill(0);
+        const colMasks = Array(size).fill(0);
+        const boxMasks = shape ? Array(size).fill(0) : null;
+        const empty = [];
+        for (let row = 0; row < size; row++) {
+          for (let col = 0; col < size; col++) {
+            const value = grid[row][col];
+            if (!value) { empty.push([row, col]); continue; }
+            const bit = 1 << (value - 1);
+            const box = shape ? boxIndex(row, col, size, shape) : 0;
+            if ((rowMasks[row] & bit) || (colMasks[col] & bit) || (shape && (boxMasks[box] & bit))) return 0;
+            rowMasks[row] |= bit;
+            colMasks[col] |= bit;
+            if (shape) boxMasks[box] |= bit;
+          }
+        }
+        let solutions = 0;
+        function search(remaining) {
+          if (solutions >= limit) return;
+          if (!remaining.length) { solutions++; return; }
+          let best = -1;
+          let bestMask = 0;
+          let bestCount = size + 1;
+          for (let index = 0; index < remaining.length; index++) {
+            const [row, col] = remaining[index];
+            const box = shape ? boxIndex(row, col, size, shape) : 0;
+            const used = rowMasks[row] | colMasks[col] | (shape ? boxMasks[box] : 0);
+            const candidates = fullMask & ~used;
+            let count = 0;
+            for (let bits = candidates; bits; bits &= bits - 1) count++;
+            if (count < bestCount) { best = index; bestMask = candidates; bestCount = count; if (count <= 1) break; }
+          }
+          if (!bestCount) return;
+          const [row, col] = remaining[best];
+          const box = shape ? boxIndex(row, col, size, shape) : 0;
+          const next = remaining.slice(0, best).concat(remaining.slice(best + 1));
+          for (let bits = bestMask; bits; bits &= bits - 1) {
+            const bit = bits & -bits;
+            rowMasks[row] |= bit; colMasks[col] |= bit;
+            if (shape) boxMasks[box] |= bit;
+            search(next);
+            rowMasks[row] ^= bit; colMasks[col] ^= bit;
+            if (shape) boxMasks[box] ^= bit;
+            if (solutions >= limit) return;
+          }
+        }
+        search(empty);
+        return solutions;
+      }
+
+      function shuffle(items) {
+        for (let i = items.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [items[i], items[j]] = [items[j], items[i]];
+        }
+        return items;
+      }
+
+      function shuffledGroups(size, groupSize) {
+        const groups = [];
+        for (let start = 0; start < size; start += groupSize) groups.push(shuffle(Array.from({ length: groupSize }, (_, i) => start + i)));
+        return shuffle(groups).flat();
+      }
+
+      function makeSolution(size) {
+        const symbols = shuffle(Array.from({ length: size }, (_, i) => i + 1));
+        const shape = boxShape(size);
+        if (shape) {
+          const [boxRows, boxColumns] = shape;
+          const rows = shuffledGroups(size, boxRows);
+          const columns = shuffledGroups(size, boxColumns);
+          return rows.map(row => columns.map(column => symbols[(row * boxColumns + Math.floor(row / boxRows) + column) % size]));
+        }
+        const rows = shuffle(Array.from({ length: size }, (_, i) => i));
+        const columns = shuffle(Array.from({ length: size }, (_, i) => i));
+        return rows.map(row => columns.map(column => symbols[(row + column) % size]));
+      }
+
+      function makePuzzle(size) {
+        const solution = makeSolution(size);
+        const puzzle = solution.map(row => row.slice());
+        const cells = shuffle(Array.from({ length: size * size }, (_, index) => [Math.floor(index / size), index % size]));
+        let clues = size * size;
+        for (const [row, col] of cells) {
+          if (clues <= MEDIUM_CLUES[size]) break;
+          const value = puzzle[row][col];
+          puzzle[row][col] = 0;
+          if (countSolutions(puzzle, size) !== 1) puzzle[row][col] = value;
+          else clues--;
+        }
+        return [puzzle, solution];
+      }
+
+      function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
+        return `${minutes}:${(seconds % 60).toFixed(1).padStart(4, "0")}`;
+      }
+
+      function timeBonus(size, seconds) {
+        for (const [limit, bonus] of TIME_REWARDS[size]) if (seconds <= limit) return bonus;
+        return 0;
+      }
+
+      function setNote(text, tone = "") {
+        ui.note.textContent = text;
+        ui.note.dataset.tone = tone;
+      }
+
+      function updateHeader() {
+        ui.score.textContent = game.score;
+        ui.title.textContent = game.levelIndex < LEVELS.length
+          ? `第 ${game.levelIndex + 1} / 7 关 · ${LEVELS[game.levelIndex]} 阶`
+          : "七阶全通 · 完美收官";
+        ui.progress.replaceChildren(...LEVELS.map((size, index) => {
+          const step = document.createElement("div");
+          step.className = `progress-step${index < game.levelIndex ? " done" : ""}${index === game.levelIndex ? " current" : ""}`;
+          step.textContent = `${size}阶`;
+          return step;
+        }));
+        ui.hint.textContent = `提示 · −${game.hintCost}分`;
+        ui.hint.disabled = game.startedAt === null || game.score < game.hintCost || !hasEditableCells();
+      }
+
+      function hasEditableCells() {
+        return game.fixed.some(row => row.some(value => !value));
+      }
+
+      function updateHistory() {
+        if (!game.summary.length) {
+          const empty = document.createElement("span");
+          empty.className = "empty-history";
+          empty.textContent = "完成关卡后显示记录";
+          ui.history.replaceChildren(empty);
+          return;
+        }
+        ui.history.replaceChildren(...game.summary.map(item => {
+          const row = document.createElement("div");
+          row.className = "history-row";
+          const level = document.createElement("span");
+          level.textContent = `${item.level}阶`;
+          const score = document.createElement("span");
+          score.textContent = `${formatTime(item.elapsed)}  +${item.gained}分`;
+          row.append(level, score);
+          return row;
+        }));
+      }
+
+      function updateRewards() {
+        const rewards = TIME_REWARDS[LEVELS[game.levelIndex]];
+        const rows = rewards.map(([limit, bonus], index) => ({ label: `≤ ${limit} 秒`, bonus: `+${bonus}`, active: game.elapsed <= limit && (index === 0 || game.elapsed > rewards[index - 1][0]) }));
+        rows.push({ label: `> ${rewards[rewards.length - 1][0]} 秒`, bonus: "+0", active: game.elapsed > rewards[rewards.length - 1][0] });
+        ui.rewards.replaceChildren(...rows.map(item => {
+          const row = document.createElement("div");
+          row.className = `reward${item.active ? " active" : ""}`;
+          const label = document.createElement("span"); label.textContent = item.label;
+          const bonus = document.createElement("strong"); bonus.textContent = item.bonus;
+          row.append(label, bonus);
+          return row;
+        }));
+      }
+
+      function isSameBox(rowA, colA, rowB, colB) {
+        const shape = boxShape(LEVELS[game.levelIndex]);
+        return !!shape && Math.floor(rowA / shape[0]) === Math.floor(rowB / shape[0]) && Math.floor(colA / shape[1]) === Math.floor(colB / shape[1]);
+      }
+
+      function renderBoard() {
+        const size = LEVELS[game.levelIndex];
+        const shape = boxShape(size);
+        ui.board.style.setProperty("--size", size);
+        ui.board.setAttribute("aria-rowcount", size);
+        ui.board.setAttribute("aria-colcount", size);
+        const cells = [];
+        for (let row = 0; row < size; row++) {
+          for (let col = 0; col < size; col++) {
+            const cell = document.createElement("button");
+            cell.type = "button";
+            cell.className = "cell";
+            cell.setAttribute("role", "gridcell");
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            if (game.fixed[row][col] && !game.hinted[row][col]) cell.classList.add("given");
+            if (game.hinted[row][col]) cell.classList.add("hinted");
+            if (shape && col < size - 1 && (col + 1) % shape[1] === 0) cell.classList.add("box-right");
+            if (shape && row < size - 1 && (row + 1) % shape[0] === 0) cell.classList.add("box-bottom");
+            cell.textContent = game.values[row][col] || "";
+            cell.setAttribute("aria-label", `第${row + 1}行第${col + 1}列${game.values[row][col] ? `，${game.values[row][col]}` : "，空格"}${game.fixed[row][col] ? "，已锁定" : ""}`);
+            cell.disabled = game.startedAt === null || !!game.fixed[row][col];
+            if (game.selected && game.selected[0] === row && game.selected[1] === col) cell.classList.add("selected");
+            else if (game.selected && (game.selected[0] === row || game.selected[1] === col || isSameBox(row, col, game.selected[0], game.selected[1]))) cell.classList.add("related");
+            if (game.selected && game.values[row][col] && game.values[row][col] === game.values[game.selected[0]][game.selected[1]]) cell.classList.add("same-number");
+            cell.addEventListener("click", () => { game.selected = [row, col]; renderBoard(); });
+            cells.push(cell);
+          }
+        }
+        ui.board.replaceChildren(...cells);
+        renderKeypad();
+      }
+
+      function renderKeypad() {
+        const size = LEVELS[game.levelIndex];
+        const keys = Array.from({ length: size }, (_, i) => i + 1).map(value => {
+          const button = document.createElement("button");
+          button.type = "button"; button.className = "key"; button.textContent = value;
+          button.addEventListener("click", () => enterValue(value));
+          return button;
+        });
+        const erase = document.createElement("button");
+        erase.type = "button"; erase.className = "key"; erase.textContent = "清除"; erase.setAttribute("aria-label", "清除所选格");
+        erase.addEventListener("click", () => enterValue(0));
+        keys.push(erase);
+        ui.keypad.replaceChildren(...keys);
+      }
+
+      function render() {
+        renderBoard();
+        updateHeader();
+        updateRewards();
+        updateHistory();
+      }
+
+      function newRound() {
+        clearInterval(game.timerId);
+        game.startedAt = null;
+        game.elapsed = 0;
+        [game.puzzle, game.solution] = makePuzzle(LEVELS[game.levelIndex]);
+        game.values = game.puzzle.map(row => row.slice());
+        game.fixed = game.puzzle.map(row => row.map(Boolean));
+        game.hinted = game.puzzle.map(row => row.map(() => false));
+        game.selected = null;
+        ui.timer.textContent = formatTime(0);
+        ui.status.textContent = "准备就绪";
+        ui.status.style.color = "";
+        ui.start.disabled = false;
+        ui.start.textContent = "开始计时";
+        ui.submit.disabled = true;
+        setNote("题目已通过唯一解校验");
+        render();
+      }
+
+      function startTimer() {
+        if (game.startedAt !== null || !hasEditableCells()) return;
+        game.startedAt = performance.now();
+        const firstRow = game.fixed.findIndex(row => row.some(value => !value));
+        const firstColumn = game.fixed[firstRow].findIndex(value => !value);
+        game.selected = [firstRow, firstColumn];
+        ui.start.disabled = true;
+        ui.start.textContent = "计时中";
+        ui.submit.disabled = false;
+        ui.status.textContent = "计时中";
+        ui.status.style.color = "var(--accent)";
+        game.timerId = setInterval(tick, 100);
+        render();
+      }
+
+      function tick() {
+        if (game.startedAt === null) return;
+        game.elapsed = (performance.now() - game.startedAt) / 1000;
+        ui.timer.textContent = formatTime(game.elapsed);
+        updateRewards();
+        updateHeader();
+      }
+
+      function enterValue(value) {
+        if (game.startedAt === null || !game.selected) return;
+        const [row, col] = game.selected;
+        if (game.fixed[row][col]) return;
+        game.values[row][col] = value;
+        renderBoard();
+      }
+
+      function useHint() {
+        if (game.startedAt === null || game.score < game.hintCost) return;
+        let target = game.selected && !game.fixed[game.selected[0]][game.selected[1]] ? game.selected : null;
+        if (!target) {
+          for (let row = 0; row < game.values.length && !target; row++) {
+            for (let col = 0; col < game.values.length; col++) if (!game.fixed[row][col]) { target = [row, col]; break; }
+          }
+        }
+        if (!target) return;
+        const [row, col] = target;
+        const cost = game.hintCost;
+        game.score -= cost;
+        game.hintSpent += cost;
+        game.hintCost *= 2;
+        game.values[row][col] = game.solution[row][col];
+        game.fixed[row][col] = true;
+        game.hinted[row][col] = true;
+        game.selected = null;
+        ui.status.textContent = `提示：第${row + 1}行第${col + 1}列是 ${game.solution[row][col]}，消耗 ${cost} 分`;
+        ui.status.style.color = "var(--hint)";
+        render();
+      }
+
+      function stopTimer() {
+        clearInterval(game.timerId);
+        game.timerId = null;
+        if (game.startedAt !== null) {
+          game.elapsed = (performance.now() - game.startedAt) / 1000;
+          game.startedAt = null;
+        }
+        ui.timer.textContent = formatTime(game.elapsed);
+        updateRewards();
+      }
+
+      function submitAnswer() {
+        if (game.startedAt === null) return;
+        stopTimer();
+        game.attempts++;
+        ui.submit.disabled = true;
+        for (const cell of ui.board.querySelectorAll(".cell")) cell.disabled = true;
+        const correct = game.values.every((row, r) => row.every((value, c) => value === game.solution[r][c]));
+        if (correct) {
+          const bonus = timeBonus(LEVELS[game.levelIndex], game.elapsed);
+          const gained = 20 + bonus;
+          game.score += gained;
+          game.summary.push({ level: LEVELS[game.levelIndex], elapsed: game.elapsed, bonus, gained, penalties: game.penalties, hintSpent: game.hintSpent, attempts: game.attempts });
+          ui.status.textContent = `正确！基础 +20，时间奖励 +${bonus}，本关 +${gained}`;
+          ui.status.style.color = "var(--accent)";
+          setNote("本关完成", "good");
+          updateHeader(); updateHistory();
+          setTimeout(advanceLevel, 850);
+        } else {
+          game.penalties += Math.min(game.score, 10);
+          game.score = Math.max(0, game.score - 10);
+          ui.status.textContent = "答案错误 · −10 分 · 本关重开新题";
+          ui.status.style.color = "var(--danger)";
+          setNote("答案不正确，正在准备新题", "bad");
+          updateHeader();
+          setTimeout(newRound, 700);
+        }
+      }
+
+      function advanceLevel() {
+        game.levelIndex++;
+        if (game.levelIndex >= LEVELS.length) { showSummary(); return; }
+        game.attempts = 0; game.penalties = 0; game.hintSpent = 0;
+        newRound();
+      }
+
+      function showSummary() {
+        ui.title.textContent = "七阶全通 · 完美收官";
+        ui.rules.textContent = "所有关卡已完成";
+        ui.status.textContent = "通关完成";
+        ui.start.disabled = true;
+        ui.start.textContent = "已通关";
+        ui.submit.disabled = true;
+        const title = document.createElement("h2"); title.textContent = "全部关卡完成";
+        const score = document.createElement("p"); score.className = "dialog-score"; score.textContent = `最终总积分　${game.score} 分`;
+        const list = document.createElement("div"); list.className = "summary-list";
+        for (const item of game.summary) {
+          const row = document.createElement("div"); row.className = "summary-item";
+          const level = document.createElement("span"); level.className = "summary-level"; level.textContent = `${item.level}阶`;
+          const detail = document.createElement("span");
+          detail.textContent = `${formatTime(item.elapsed)}　基础 +20 · 时间 +${item.bonus} · 提示 −${item.hintSpent} · 错误扣分 −${item.penalties} · 尝试 ${item.attempts} 次`;
+          row.append(level, detail); list.append(row);
+        }
+        const actions = document.createElement("div"); actions.className = "dialog-actions";
+        const restart = document.createElement("button"); restart.className = "action secondary"; restart.textContent = "再玩一轮";
+        restart.addEventListener("click", () => { ui.dialog.close(); resetGame(); });
+        const close = document.createElement("button"); close.className = "action primary"; close.textContent = "完成";
+        close.addEventListener("click", () => ui.dialog.close());
+        actions.append(restart, close);
+        ui.summary.replaceChildren(title, score, list, actions);
+        ui.dialog.showModal();
+      }
+
+      function resetGame() {
+        game.score = 100; game.levelIndex = 0; game.hintCost = 10; game.summary = [];
+        game.attempts = 0; game.penalties = 0; game.hintSpent = 0;
+        ui.rules.textContent = "每行、每列数字不重复";
+        newRound();
+      }
+
+      function moveSelection(rowDelta, colDelta) {
+        if (game.startedAt === null || !game.selected) return;
+        const size = LEVELS[game.levelIndex];
+        let [row, col] = game.selected;
+        for (let step = 0; step < size * size; step++) {
+          row = (row + rowDelta + size) % size;
+          col = (col + colDelta + size) % size;
+          if (!game.fixed[row][col]) { game.selected = [row, col]; renderBoard(); return; }
+        }
+      }
+
+      document.addEventListener("keydown", event => {
+        if (ui.dialog.open) return;
+        const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+        if (arrows[event.key]) { event.preventDefault(); moveSelection(...arrows[event.key]); return; }
+        if (/^[1-9]$/.test(event.key) && Number(event.key) <= LEVELS[game.levelIndex]) enterValue(Number(event.key));
+        else if (event.key === "Backspace" || event.key === "Delete" || event.key === "0") enterValue(0);
+        else if (event.key === "Enter") game.startedAt === null ? startTimer() : submitAnswer();
+      });
+      ui.start.addEventListener("click", startTimer);
+      ui.hint.addEventListener("click", useHint);
+      ui.submit.addEventListener("click", submitAnswer);
+      newRound();
+    })();
+  </script>
+</body>
+</html>
